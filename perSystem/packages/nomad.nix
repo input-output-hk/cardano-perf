@@ -6,7 +6,7 @@
   }: {
     packages.nomad = pkgs.buildGoModule rec {
       pname = "nomad";
-      version = "1.6.3";
+      version = "1.7.3";
 
       subPackages = ["."];
 
@@ -14,10 +14,10 @@
         owner = "hashicorp";
         repo = pname;
         rev = "release/${version}";
-        sha256 = "sha256-yOlR8lka3TbCNo7N0xQNzrNe6H7t7EabR8oVevFSHd0=";
+        sha256 = "sha256-2D4QmBeJCpTI2yJvDx0aGpHRRQe+BsCSs5jvVAFZl6Q=";
       };
 
-      vendorHash = "sha256-gXoheW6Ww9Iu4utKNHweP2blzhWid+Q9Tp0ZgCmBAVg=";
+      vendorHash = "sha256-M8lGzUvPY8hNhN9ExHasfnLhe+DYBb86RXr1wdrRbgw=";
 
       patches = [
         ./nomad-exec-nix-driver.patch
@@ -46,7 +46,7 @@
         description = "A Distributed, Highly Available, Datacenter-Aware Scheduler";
         platforms = platforms.unix;
         license = licenses.mpl20;
-        maintainers = with maintainers; [rushmorem pradeepchhetri endocrimes maxeaubrey techknowlogick];
+        maintainers = with maintainers; [manveru];
       };
     };
   };

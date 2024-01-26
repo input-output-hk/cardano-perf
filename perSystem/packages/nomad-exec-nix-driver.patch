@@ -1,3 +1,16 @@
+From 5a8b89ac6fd9147e86d7713536324cbd0458247b Mon Sep 17 00:00:00 2001
+From: Michael Fellinger <michael.fellinger@iohk.io>
+Date: Fri, 26 Jan 2024 15:45:37 +0100
+Subject: [PATCH] nix-driver
+
+---
+ client/allocrunner/taskrunner/nix_hook.go     | 349 ++++++++++++++++++
+ .../taskrunner/task_runner_hooks.go           |   2 +
+ .../allocrunner/taskrunner/template_hook.go   |  88 +++++
+ drivers/exec/driver.go                        |  19 +-
+ 4 files changed, 452 insertions(+), 6 deletions(-)
+ create mode 100644 client/allocrunner/taskrunner/nix_hook.go
+
 diff --git a/client/allocrunner/taskrunner/nix_hook.go b/client/allocrunner/taskrunner/nix_hook.go
 new file mode 100644
 index 0000000000..65f1194030
@@ -354,20 +367,20 @@ index 0000000000..65f1194030
 +	}
 +}
 diff --git a/client/allocrunner/taskrunner/task_runner_hooks.go b/client/allocrunner/taskrunner/task_runner_hooks.go
-index 698915878b..eec6229b11 100644
+index 5282f66978..7f6ce1bc62 100644
 --- a/client/allocrunner/taskrunner/task_runner_hooks.go
 +++ b/client/allocrunner/taskrunner/task_runner_hooks.go
-@@ -87,6 +87,8 @@ func (tr *TaskRunner) initHooks() {
+@@ -88,6 +88,8 @@ func (tr *TaskRunner) initHooks() {
  			}))
  	}
  
 +	tr.runnerHooks = append(tr.runnerHooks, newNixHook(tr, hookLogger))
 +
  	// If Vault is enabled, add the hook
- 	if task.Vault != nil {
+ 	if task.Vault != nil && tr.vaultClientFunc != nil {
  		tr.runnerHooks = append(tr.runnerHooks, newVaultHook(&vaultHookConfig{
 diff --git a/client/allocrunner/taskrunner/template_hook.go b/client/allocrunner/taskrunner/template_hook.go
-index 3f3cc8e7a5..d2379749f4 100644
+index 3cd8c412de..11b0f9a1e7 100644
 --- a/client/allocrunner/taskrunner/template_hook.go
 +++ b/client/allocrunner/taskrunner/template_hook.go
 @@ -6,7 +6,14 @@ package taskrunner
@@ -385,15 +398,15 @@ index 3f3cc8e7a5..d2379749f4 100644
  
  	log "github.com/hashicorp/go-hclog"
  	"github.com/hashicorp/nomad/client/allocrunner/interfaces"
-@@ -14,6 +21,7 @@ import (
- 	"github.com/hashicorp/nomad/client/allocrunner/taskrunner/template"
+@@ -15,6 +22,7 @@ import (
  	"github.com/hashicorp/nomad/client/config"
+ 	cstructs "github.com/hashicorp/nomad/client/structs"
  	"github.com/hashicorp/nomad/client/taskenv"
 +	"github.com/hashicorp/nomad/helper/users"
  	"github.com/hashicorp/nomad/nomad/structs"
  )
  
-@@ -110,6 +118,40 @@ func (h *templateHook) Prestart(ctx context.Context, req *interfaces.TaskPrestar
+@@ -173,6 +181,40 @@ func (h *templateHook) Prestart(ctx context.Context, req *interfaces.TaskPrestar
  		h.vaultNamespace = req.Task.Vault.Namespace
  	}
  
@@ -434,7 +447,7 @@ index 3f3cc8e7a5..d2379749f4 100644
  	unblockCh, err := h.newManager()
  	if err != nil {
  		return err
-@@ -121,6 +163,52 @@ func (h *templateHook) Prestart(ctx context.Context, req *interfaces.TaskPrestar
+@@ -184,6 +226,52 @@ func (h *templateHook) Prestart(ctx context.Context, req *interfaces.TaskPrestar
  	case <-unblockCh:
  	}
  
@@ -488,10 +501,10 @@ index 3f3cc8e7a5..d2379749f4 100644
  }
  
 diff --git a/drivers/exec/driver.go b/drivers/exec/driver.go
-index c8c8d594bb..ff8d89371a 100644
+index 02e4064724..6a4196e2fd 100644
 --- a/drivers/exec/driver.go
 +++ b/drivers/exec/driver.go
-@@ -86,12 +86,15 @@ var (
+@@ -87,12 +87,15 @@ var (
  	// taskConfigSpec is the hcl specification for the driver config section of
  	// a task within a job. It is returned in the TaskConfigSchema RPC
  	taskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
@@ -513,7 +526,7 @@ index c8c8d594bb..ff8d89371a 100644
  	})
  
  	// driverCapabilities represents the RPC response for what features are
-@@ -198,6 +201,10 @@ type TaskConfig struct {
+@@ -202,6 +205,10 @@ type TaskConfig struct {
  
  	// CapDrop is a set of linux capabilities to disable.
  	CapDrop []string `codec:"cap_drop"`
@@ -524,3 +537,6 @@ index c8c8d594bb..ff8d89371a 100644
  }
  
  func (tc *TaskConfig) validate() error {
+-- 
+2.42.0
+
