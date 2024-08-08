@@ -191,6 +191,7 @@
       users = [
         "jhbertra"
         "paluh"
+        "prednaz"
       ];
 
       teams = [
