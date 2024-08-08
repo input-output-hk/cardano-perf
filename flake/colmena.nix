@@ -88,7 +88,7 @@ in {
     // (mkNode "leader" "10.200.0.1" [eu-central-1c (type "r5.xlarge") nomad-server (ebs 40)])
     // (mkNode "deployer" "10.200.0.2" [eu-central-1b (type "c5.9xlarge") deployer nix-private (ebs 2000)])
     // (mkNode "explorer" "10.200.1.19" [eu-central-1b (type "m5.4xlarge") nomad-client perf-class (ebs 40)])
-    // (mkNode "db-sync" "10.200.1.20" [eu-central-1c (type "m5.4xlarge") db-sync perf-ssd-class (ebs 50)])
+    // (mkNode "db-sync" "10.200.1.20" [eu-central-1c (type "m5.4xlarge") db-sync perf-ssd-class (ebs 80)])
     # // (mkNodes 19 "client-ssd-eu-%02d" "10.200.21.%d" [(type "r5d.4xlarge") nix-private nomad-client nomad-ssd perf-ssd-class (ebs 40) eu-central-1b])
     # // (mkNodes 17 "client-ssd-ap-%02d" "10.200.22.%d" [(type "r5d.4xlarge") nix-private nomad-client nomad-ssd perf-ssd-class (ebs 40) ap-southeast-2b])
     # // (mkNodes 17 "client-ssd-us-%02d" "10.200.23.%d" [(type "r5d.4xlarge") nix-private nomad-client nomad-ssd perf-ssd-class (ebs 40) us-east-1d])
