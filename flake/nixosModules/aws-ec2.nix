@@ -49,9 +49,33 @@
               };
             };
 
-            route53 = lib.mkOption {
-              default = null;
-              type = lib.types.nullOr lib.types.anything;
+            aws_route53_record = lib.mkOption {
+              default = [];
+              type = lib.types.listOf (
+                lib.types.submodule {
+                  options = {
+                    zone_id = lib.mkOption {
+                      type = lib.types.str;
+                      default = "\${data.aws_route53_zone.selected.zone_id}";
+                    };
+                    name = lib.mkOption {
+                      type = lib.types.str;
+                    };
+                    type = lib.mkOption {
+                      type = lib.types.str;
+                      default = "A";
+                    };
+                    ttl = lib.mkOption {
+                      type = lib.types.str;
+                      default = "300";
+                    };
+                    records = lib.mkOption {
+                      type = lib.types.listOf lib.types.str;
+                      default = ["\${aws_eip.${name}[0].public_ip}"];
+                    };
+                  };
+                }
+              );
             };
           };
         });
@@ -65,6 +89,16 @@
         group = name;
         Name = name;
       };
+
+      aws.aws_route53_record = [
+        {
+          zone_id = "\${data.aws_route53_zone.selected.zone_id}";
+          name = "${name}.\${data.aws_route53_zone.selected.name}";
+          type = "A";
+          ttl = "300";
+          records = ["\${aws_eip.${name}[0].public_ip}"];
+        }
+      ];
     };
   };
 }

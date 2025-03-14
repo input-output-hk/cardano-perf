@@ -61,6 +61,35 @@ in {
           aws_caller_identity.current = {};
           aws_region.current = {};
           aws_route53_zone.selected.name = "${cluster.domain}.";
+
+          aws_iam_policy_document = {
+            ec2_assume_role.statement = [
+              {
+                principals = [
+                  {
+                    type = "Service";
+                    identifiers = ["ec2.amazonaws.com"];
+                  }
+                ];
+
+                actions = ["sts:AssumeRole"];
+              }
+            ];
+
+            s3_full_access.statement = [
+              {
+                actions = ["s3:Get*" "s3:List*" "s3:Put*"];
+                resources = ["arn:aws:s3:::*"];
+              }
+            ];
+
+            s3_read_access.statement = [
+              {
+                actions = ["s3:Get*" "s3:List*"];
+                resources = ["arn:aws:s3:::deploy-public/*"];
+              }
+            ];
+          };
         };
 
         resource = {
@@ -128,39 +157,63 @@ in {
                 policyList);
           in
             lib.foldl' lib.recursiveUpdate {} [
-              (mkRoleAttachments "ec2_role" ["kms_user" "ec2_discover"])
+              (mkRoleAttachments "ec2_role" ["kms_user" "ec2_discover" "s3_access_policy"])
             ];
 
-          aws_iam_policy.kms_user = {
-            name = "kmsUser";
-            policy = builtins.toJSON {
-              Version = "2012-10-17";
-              Statement = [
-                {
-                  Effect = "Allow";
-                  Action = ["kms:Decrypt" "kms:DescribeKey"];
+          aws_iam_policy = {
+            kms_user = {
+              name = "kmsUser";
+              policy = builtins.toJSON {
+                Version = "2012-10-17";
+                Statement = [
+                  {
+                    Effect = "Allow";
+                    Action = ["kms:Decrypt" "kms:DescribeKey"];
 
-                  # KMS `kmsKey` is bootstrapped by cloudFormation rain.
-                  # Scope this policy to a specific resource to allow for multiple keys and key policies.
-                  # Resource = "arn:aws:kms:\${data.aws_region.current.name}:\${data.aws_caller_identity.current.account_id}:alias/kmsKey";
-                  Resource = "arn:aws:kms:*:\${data.aws_caller_identity.current.account_id}:key/*";
-                  Condition."ForAnyValue:StringLike"."kms:ResourceAliases" = "alias/kmsKey";
-                }
-              ];
+                    # KMS `kmsKey` is bootstrapped by cloudFormation rain.
+                    # Scope this policy to a specific resource to allow for multiple keys and key policies.
+                    # Resource = "arn:aws:kms:\${data.aws_region.current.name}:\${data.aws_caller_identity.current.account_id}:alias/kmsKey";
+                    Resource = "arn:aws:kms:*:\${data.aws_caller_identity.current.account_id}:key/*";
+                    Condition."ForAnyValue:StringLike"."kms:ResourceAliases" = "alias/kmsKey";
+                  }
+                ];
+              };
             };
-          };
 
-          aws_iam_policy.ec2_discover = {
-            name = "ec2_discover";
-            policy = builtins.toJSON {
-              Version = "2012-10-17";
-              Statement = [
-                {
-                  Effect = "Allow";
-                  Action = ["ec2:DescribeInstances"];
-                  Resource = "*";
-                }
-              ];
+            ec2_discover = {
+              name = "ec2_discover";
+              policy = builtins.toJSON {
+                Version = "2012-10-17";
+                Statement = [
+                  {
+                    Effect = "Allow";
+                    Action = ["ec2:DescribeInstances"];
+                    Resource = "*";
+                  }
+                ];
+              };
+            };
+
+            s3_access_policy = {
+              name = "s3_access_policy";
+              policy = builtins.toJSON {
+                Version = "2012-10-17";
+                Statement = [
+                  {
+                    Effect = "Allow";
+                    Action = [
+                      "s3:Put*"
+                      "s3:Get*"
+                      "s3:List*"
+                      "s3:Delete*"
+                    ];
+                    Resource = [
+                      "\${aws_s3_bucket.deploy.arn}"
+                      "\${aws_s3_bucket.deploy.arn}/*"
+                    ];
+                  }
+                ];
+              };
             };
           };
 
@@ -280,15 +333,64 @@ in {
               };
             });
 
-          aws_route53_record = mapNodes (
-            nodeName: _: {
-              zone_id = "\${data.aws_route53_zone.selected.zone_id}";
-              name = "${nodeName}.\${data.aws_route53_zone.selected.name}";
-              type = "A";
-              ttl = "300";
-              records = ["\${aws_eip.${nodeName}[0].public_ip}"];
-            }
-          );
+          aws_route53_record = builtins.listToAttrs (lib.flatten (builtins.attrValues (lib.mapAttrs (nodeName: node:
+            map (record: {
+              name = "${nodeName}-${record.type}-${builtins.hashString "md5" record.name}";
+              value = record;
+            })
+            node.aws.aws_route53_record)
+          nodes)));
+
+          aws_s3_bucket.deploy = {
+            bucket = "${self.cluster.profile}-deploy";
+            tags = self.cluster.generic;
+          };
+
+          aws_s3_bucket_policy.public_read_access = {
+            bucket = "\${aws_s3_bucket.deploy.id}";
+            policy = builtins.toJSON {
+              Version = "2012-10-17";
+              Statement = [
+                {
+                  Sid = "PublicReadGetObject";
+                  Effect = "Allow";
+                  Principal = "*";
+                  Action = "s3:GetObject";
+                  Resource = "\${aws_s3_bucket.deploy.arn}/*";
+                }
+              ];
+            };
+          };
+
+          aws_iam_role.ec2_s3_access_role = {
+            name = "ec2_s3_access_role";
+            assume_role_policy = builtins.toJSON {
+              Version = "2012-10-17";
+              Statement = [
+                {
+                  Action = "sts:AssumeRole";
+                  Effect = "Allow";
+                  Principal = {
+                    Service = "ec2.amazonaws.com";
+                  };
+                }
+              ];
+            };
+          };
+
+          aws_s3_bucket_public_access_block.deploy = {
+            bucket = "\${aws_s3_bucket.deploy.id}";
+
+            block_public_acls = true;
+            block_public_policy = false;
+            ignore_public_acls = true;
+            restrict_public_buckets = false;
+
+            depends_on = [
+              # https://github.com/hashicorp/terraform-provider-aws/issues/7628#issuecomment-469825984
+              "aws_s3_bucket_policy.public_read_access"
+            ];
+          };
 
           local_file.ssh_config = {
             filename = "\${path.module}/.ssh_config";
