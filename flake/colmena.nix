@@ -2,6 +2,7 @@
   inputs,
   config,
   lib,
+  self,
   ...
 }: let
   inherit (config.flake) nixosModules;
@@ -92,4 +93,6 @@ in {
     // (mkNodes 18 "client-eu-%02d" "10.200.1.%d" [(type "c5.2xlarge") nomad-client perf-class (ebs 40) eu-central-1b])
     // (mkNodes 17 "client-ap-%02d" "10.200.2.%d" [(type "c5.2xlarge") nomad-client perf-class (ebs 40) ap-southeast-2b])
     // (mkNodes 17 "client-us-%02d" "10.200.3.%d" [(type "c5.2xlarge") nomad-client perf-class (ebs 40) us-east-1d]);
+
+  flake.colmenaHive = inputs.colmena.lib.makeHive self.outputs.colmena;
 }

@@ -1,14 +1,18 @@
+import? 'scripts/recipes-aws.just'
+
 set shell := ["nu", "-c"]
 set positional-arguments
 
 default:
   just --list
 
-apply-all:
-  colmena apply --verbose
-
+# Deploy select machines
 apply *ARGS:
-  colmena apply --verbose --on {{ARGS}}
+  colmena apply --verbose --experimental-flake-eval --on {{ARGS}}
+
+# Deploy all machines
+apply-all *ARGS:
+  colmena apply --verbose --experimental-flake-eval {{ARGS}}
 
 ssh HOSTNAME *ARGS:
   #!/usr/bin/env nu
