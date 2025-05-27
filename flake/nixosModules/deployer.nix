@@ -21,7 +21,7 @@
       }
     ];
 
-    systemd.services.mkfs-dev-sdh.after = ["network-online.target"];
+    systemd.services.mkfs-dev-sdh.after = ["multi-user.target"];
 
     environment.systemPackages = with pkgs; [
       (ruby.withPackages (ps: with ps; [sequel pry sqlite3 nokogiri]))
