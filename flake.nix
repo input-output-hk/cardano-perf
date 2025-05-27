@@ -4,12 +4,12 @@
   inputs = {
     auth-keys-hub.url = "github:input-output-hk/auth-keys-hub";
     auth-keys-hub.inputs.nixpkgs.follows = "nixpkgs";
-    colmena.url = "github:zhaofengli/colmena/v0.4.0";
+    colmena.url = "github:zhaofengli/colmena";
     colmena.inputs.nixpkgs.follows = "nixpkgs";
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-23.11";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
     sops-nix.url = "github:Mic92/sops-nix";
     treefmt-nix.url = "github:numtide/treefmt-nix";
     treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
