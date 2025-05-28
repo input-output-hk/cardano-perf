@@ -3,7 +3,7 @@
     nix.settings.system-features = ["benchmark"];
 
     services.nomad.settings.client.host_volume = {
-      "ephemeral".path = "/dev/ephemeral";
+      "ephemeral".path = "/ephemeral";
     };
 
     # NOTE: the simple nixos fileSystems approach below won't work because upon
