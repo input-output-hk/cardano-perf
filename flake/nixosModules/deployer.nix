@@ -11,8 +11,6 @@
       autoResize = true;
     };
 
-    fileSystems."/".autoResize = true;
-
     swapDevices = [
       {
         device = "/home/swapfile";
