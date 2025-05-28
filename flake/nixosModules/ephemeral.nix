@@ -1,4 +1,4 @@
-# nixosModule: profile-aws-ec2-ephemeral
+# nixosModule: ephemeral
 #
 # Originates from:
 # https://github.com/input-output-hk/cardano-parts/blob/main/flake/nixosModules/profile-aws-ec2-ephemeral.nix
@@ -23,7 +23,7 @@ flake: {
 
     cfg = config.services.aws.ec2.ephemeral;
   in {
-    key = ./profile-aws-ec2-ephemeral.nix;
+    key = ./ephemeral.nix;
 
     options.services.aws.ec2.ephemeral = {
       enableMountOnCreation = mkOption {
