@@ -20,7 +20,7 @@
         done
 
         set -x
-        nix build "''${checks[@]}"
+        nix build --accept-flake-config "''${checks[@]}"
       '';
     };
   };

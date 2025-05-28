@@ -66,7 +66,6 @@ parts @ {
     #
     systemd.services.sops-secrets = lib.mkIf (config.system.activationScripts.setupSecrets ? text) {
       wantedBy = ["multi-user.target"];
-      after = ["network-online.target"];
 
       script = config.system.activationScripts.setupSecrets.text;
 
