@@ -8,11 +8,11 @@ default:
 
 # Deploy select machines
 apply *ARGS:
-  colmena apply --verbose --experimental-flake-eval --on {{ARGS}}
+  colmena apply --verbose --experimental-flake-eval --nix-option accept-flake-config true --on {{ARGS}}
 
 # Deploy all machines
 apply-all *ARGS:
-  colmena apply --verbose --experimental-flake-eval {{ARGS}}
+  colmena apply --verbose --experimental-flake-eval --nix-option accept-flake-config true {{ARGS}}
 
 ssh HOSTNAME *ARGS:
   #!/usr/bin/env nu
