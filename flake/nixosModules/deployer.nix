@@ -4,8 +4,23 @@
 
     aws.instance.tags.Role = "deployer";
 
+    # NOTE: This block device needs to be manually labelled non-destructively
+    # only once so that the block device can be reproducibly remounted on each
+    # reboot.  Otherwise, if the /dev/nvme* path is used to try and mount, it
+    # will randomly break on reboot as AWS non-deterministically assigns block
+    # device names.
+    #
+    # The command to check the label is:
+    #
+    #   blkid | grep devfs
+    #
+    # The command to create a label if no label exists is:
+    #
+    #   e2label /dev/$DEVICE devfs
+    #
+    # Once labelled, the following declaration will reproducibly mount:
     fileSystems."/home" = {
-      device = "/dev/nvme1n1";
+      device = "/dev/disk/by-label/devfs";
       fsType = "ext4";
       autoFormat = true;
       autoResize = true;
