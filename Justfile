@@ -23,10 +23,13 @@ ssh HOSTNAME *ARGS:
 
   ssh -F .ssh_config {{HOSTNAME}} {{ARGS}}
 
-ssh-for-each *ARGS:
+ssh-for-all *ARGS:
   #!/usr/bin/env nu
   let nodes = (nix eval --json '.#nixosConfigurations' --apply builtins.attrNames | from json)
   $nodes | par-each {|node| just ssh -q $node {{ARGS}} }
+
+ssh-for-each HOSTNAMES *ARGS:
+  colmena exec --verbose --experimental-flake-eval --parallel 0 --on {{HOSTNAMES}} {{ARGS}}
 
 gc-all:
   #!/usr/bin/env nu
