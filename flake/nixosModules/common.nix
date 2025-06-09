@@ -153,6 +153,7 @@ parts @ {
     };
 
     services = {
+      amazon-ssm-agent.enable = lib.mkForce false;
       chrony.enable = true;
       cron.enable = true;
       fail2ban.enable = true;
