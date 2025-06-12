@@ -17,13 +17,13 @@ flake: {
           deadnix
           inputs'.colmena.packages.colmena
           just
-          nushellFull
+          nushell
           rain
           self'.packages.opentofu
           sops
           statix
           wireguard-tools
-          nomad
+          self'.packages.nomad
         ];
 
         shellHook = ''

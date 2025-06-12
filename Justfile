@@ -1,14 +1,18 @@
+import? 'scripts/recipes-aws.just'
+
 set shell := ["nu", "-c"]
 set positional-arguments
 
 default:
   just --list
 
-apply-all:
-  colmena apply --verbose
-
+# Deploy select machines
 apply *ARGS:
-  colmena apply --verbose --on {{ARGS}}
+  colmena apply --verbose --nix-option accept-flake-config true --on {{ARGS}}
+
+# Deploy all machines
+apply-all *ARGS:
+  colmena apply --verbose --nix-option accept-flake-config true {{ARGS}}
 
 ssh HOSTNAME *ARGS:
   #!/usr/bin/env nu
@@ -19,10 +23,13 @@ ssh HOSTNAME *ARGS:
 
   ssh -F .ssh_config {{HOSTNAME}} {{ARGS}}
 
-ssh-for-each *ARGS:
+ssh-for-all *ARGS:
   #!/usr/bin/env nu
   let nodes = (nix eval --json '.#nixosConfigurations' --apply builtins.attrNames | from json)
   $nodes | par-each {|node| just ssh -q $node {{ARGS}} }
+
+ssh-for-each HOSTNAMES *ARGS:
+  colmena exec --verbose --parallel 0 --nix-option accept-flake-config true --on {{HOSTNAMES}} {{ARGS}}
 
 gc-all:
   #!/usr/bin/env nu
