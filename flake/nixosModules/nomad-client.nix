@@ -5,7 +5,9 @@
     pkgs,
     lib,
     ...
-  }: {
+  }: let
+    inherit (lib) mkForce;
+  in {
     aws.instance.tags.Role = "cardano-perf-client";
 
     services.nomad = {
@@ -48,6 +50,21 @@
             ];
           }
         ];
+      };
+    };
+
+    # This will allow the service to continue retrying until sops keys are in
+    # place, wireguard is up and running and the ephemeral volumes, if any, are
+    # mounted.
+    systemd.services.nomad = {
+      serviceConfig = {
+        Restart = mkForce "always";
+        RestartSec = mkForce 10;
+      };
+
+      unitConfig = {
+        StartLimitIntervalSec = mkForce 0;
+        StartLimitBurst = mkForce 0;
       };
     };
   });

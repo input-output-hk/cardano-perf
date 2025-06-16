@@ -3,24 +3,22 @@
     nix.settings.system-features = ["benchmark"];
 
     services.nomad.settings.client.host_volume = {
-      "ssd1".path = "/ssd1";
-      "ssd2".path = "/ssd2";
+      "ephemeral".path = "/ephemeral";
     };
 
-    fileSystems = {
-      "/ssd1" = {
-        device = "/dev/nvme1n1";
-        fsType = "ext2";
-        autoFormat = true;
-        options = ["noatime" "nodiratime" "noacl"];
-      };
-
-      "/ssd2" = {
-        device = "/dev/nvme2n1";
-        fsType = "ext2";
-        autoFormat = true;
-        options = ["noatime" "nodiratime" "noacl"];
-      };
-    };
+    # NOTE: the simple nixos fileSystems approach below won't work because upon
+    # reboot, instances with ephemeral disks will randomly re-assign the device
+    # names between gp2/gp3/ephemeral leading to mount failure.
+    #
+    # The solution for this is to use the nixosModule `ephemeral`.
+    #
+    # fileSystems = {
+    #   "/ssd1" = {
+    #     device = "/dev/nvme1n1";
+    #     fsType = "ext2";
+    #     autoFormat = true;
+    #     options = ["noatime" "nodiratime" "noacl"];
+    #   };
+    # };
   };
 }

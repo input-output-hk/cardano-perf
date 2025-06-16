@@ -66,7 +66,6 @@ parts @ {
     #
     systemd.services.sops-secrets = lib.mkIf (config.system.activationScripts.setupSecrets ? text) {
       wantedBy = ["multi-user.target"];
-      after = ["network-online.target"];
 
       script = config.system.activationScripts.setupSecrets.text;
 
@@ -154,6 +153,7 @@ parts @ {
     };
 
     services = {
+      amazon-ssm-agent.enable = lib.mkForce false;
       chrony.enable = true;
       cron.enable = true;
       fail2ban.enable = true;

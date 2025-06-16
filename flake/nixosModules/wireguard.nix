@@ -1,9 +1,10 @@
 {self, ...} @ flake: {
   flake.nixosModules.wireguard = {
-    name,
-    lib,
     config,
+    lib,
+    name,
     nodes,
+    pkgs,
     ...
   }: {
     sops.secrets.wg = {
@@ -13,7 +14,24 @@
 
     systemd.services.wireguard-wg0 = {
       after = ["sops-nix.service"];
-      serviceConfig.SupplementaryGroups = [config.users.groups.keys.name];
+      serviceConfig = {
+        ExecStartPre = lib.getExe (pkgs.writeShellApplication {
+          name = "wait-for-sops-key";
+          runtimeInputs = [];
+          text = ''
+            while true; do
+              if [ -f ${config.sops.secrets.wg.path} ]; then
+                echo "Found ${config.sops.secrets.wg.path}..."
+                break
+              fi
+              echo "Sleeping 2 seconds to wait for sops secrets..."
+              sleep 2
+            done
+          '';
+        });
+
+        SupplementaryGroups = [config.users.groups.keys.name];
+      };
     };
 
     networking = {

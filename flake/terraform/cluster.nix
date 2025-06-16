@@ -6,7 +6,8 @@
   ...
 }: let
   inherit (config.flake) cluster;
-  amis = import "${inputs.nixpkgs}/nixos/modules/virtualisation/ec2-amis.nix";
+
+  system = "x86_64-linux";
 
   underscore = lib.replaceStrings ["-"] ["_"];
   awsProviderFor = region: "aws.${underscore region}";
@@ -62,6 +63,25 @@ in {
           aws_region.current = {};
           aws_route53_zone.selected.name = "${cluster.domain}.";
 
+          aws_ami = mapRegions ({region, ...}: {
+            "nixos_${system}_${region}" = {
+              owners = ["427812963091"];
+              most_recent = true;
+              provider = "aws.${region}";
+
+              filter = [
+                {
+                  name = "name";
+                  values = ["nixos/25.05*"];
+                }
+                {
+                  name = "architecture";
+                  values = [(builtins.head (lib.splitString "-" system))];
+                }
+              ];
+            };
+          });
+
           aws_iam_policy_document = {
             ec2_assume_role.statement = [
               {
@@ -98,7 +118,7 @@ in {
               {
                 inherit (node.aws.instance) count instance_type tags;
                 provider = awsProviderFor node.aws.region;
-                ami = amis.${node.system.stateVersion}.${node.aws.region}.hvm-ebs;
+                ami = "\${data.aws_ami.nixos_${system}_${underscore node.aws.region}.id}";
                 iam_instance_profile = "\${aws_iam_instance_profile.ec2_profile.name}";
                 monitoring = true;
                 key_name = "\${aws_key_pair.bootstrap_${underscore node.aws.region}[0].key_name}";
