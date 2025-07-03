@@ -3,7 +3,11 @@
     nix.settings.system-features = ["benchmark"];
 
     services.nomad.settings.client.host_volume = {
-      "ephemeral".path = "/ephemeral";
+      ephemeral.path = "/ephemeral";
+      cgroup = {
+        path = "/sys/fs/cgroup";
+        read_only = true;
+      };
     };
 
     # NOTE: the simple nixos fileSystems approach below won't work because upon
