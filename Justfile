@@ -60,10 +60,21 @@ save-bootstrap-ssh-key:
   $key.values.private_key_openssh | save .ssh_key
   chmod 0600 .ssh_key
 
+# Deploy a cloudFormation stack
 cf STACKNAME:
+  #!/usr/bin/env nu
   mkdir cloudFormation
+  let secretName = (nix eval --raw '.#cluster.generic.costCenter')
+  let costCenter = (
+    sops --kms /dev/null -d secrets/cluster.tfvars.enc
+    | lines
+    | where { |it| $it =~ $secretName }
+    | parse $"($secretName) = \"{secret}\""
+    | get 0.secret
+    | to text
+  )
   nix eval --json '.#cloudFormation.{{STACKNAME}}' | from json | save --force 'cloudFormation/{{STACKNAME}}.json'
-  rain deploy --debug --termination-protection --yes ./cloudFormation/{{STACKNAME}}.json
+  rain deploy --debug --params costCenter=($costCenter) --termination-protection ./cloudFormation/{{STACKNAME}}.json
 
 wg-genkey KMS HOSTNAME:
   #!/usr/bin/env nu
@@ -89,9 +100,37 @@ wg-genkeys:
   for node in $nodes { just wg-genkey $kms $node }
 
 tf *ARGS:
-  rm --force cluster.tf.json
-  nix build .#terraform.cluster --out-link cluster.tf.json
-  tofu {{ARGS}}
+  #!/usr/bin/env bash
+  set -euo pipefail
+  IGREEN='\033[1;92m'
+  IRED='\033[1;91m'
+  NC='\033[0m'
+  SOPS=("sops" "--kms" "/dev/null" "--decrypt")
+
+  read -r -a ARGS <<< "{{ARGS}}"
+  if [[ ${ARGS[0]} =~ cluster ]]; then
+    WORKSPACE="${ARGS[0]}"
+    ARGS=("${ARGS[@]:1}")
+  else
+    WORKSPACE="cluster"
+  fi
+
+  unset VAR_FILE
+  if [ -s "secrets/$WORKSPACE.tfvars.enc" ]; then
+    VAR_FILE="secrets/$WORKSPACE.tfvars.enc"
+  fi
+
+  # Everything is currently in one TF workspace, but we can use this to expand in the future if we want
+  # echo -e "Running tofu in the ${IGREEN}$WORKSPACE${NC} workspace..."
+  # rm --force "$WORKSPACE.tf.json"
+  nix build ".#terraform.$WORKSPACE" --out-link "$WORKSPACE.tf.json"
+
+  tofu init -reconfigure
+
+  # If not using a default workspace:
+  # tofu workspace select -or-create "$WORKSPACE"
+
+  tofu "${ARGS[@]:0:1}" ${VAR_FILE:+-var-file=<("${SOPS[@]}" "$VAR_FILE")} "${ARGS[@]:1}"
 
 show-nameservers:
   #!/usr/bin/env nu

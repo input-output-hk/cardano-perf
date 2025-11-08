@@ -20,11 +20,18 @@
     bucketName = "cardano-perf-terraform";
 
     generic = {
-      organization = "iog";
+      organization = "ioe";
       tribe = "coretech";
       function = "cardano-perf";
       repo = "https://github.com/input-output-hk/cardano-perf";
-      environment = "generic";
+
+      # Tags below are required by IT/Finance
+      owner = "ioe";
+      environment = "benchmarking";
+      project = "cardano-perf";
+
+      # This is the tf var secrets name located in secrets/cluster.tfvars.enc
+      costCenter = "tag_costCenter";
     };
   };
 }

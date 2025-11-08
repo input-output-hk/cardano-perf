@@ -1,18 +1,61 @@
-{config, ...}: {
+{
+  config,
+  lib,
+  ...
+}: {
   flake.cloudFormation.terraformState = let
     inherit (config.flake.cluster) domain bucketName;
+
+    tagWith = name:
+      (lib.mapAttrsToList (n: v: {
+          Key = n;
+          Value = v;
+        }) {
+          inherit
+            (config.flake.cluster.generic)
+            environment
+            function
+            organization
+            owner
+            project
+            repo
+            tribe
+            ;
+        })
+      ++ [
+        {
+          Key = "Name";
+          Value = name;
+        }
+        {
+          Key = "costCenter";
+          Value = {
+            Ref = "costCenter";
+          };
+        }
+      ];
   in {
     AWSTemplateFormatVersion = "2010-09-09";
     Description = "Terraform state handling";
 
+    # The costCenter parameter will be passed to the configuration via a secrets file.
+    # For details, see the just recipe: cf
+    Parameters = {
+      costCenter = {
+        Type = "String";
+        Description = "The costCenter tag";
+      };
+    };
+
     # Resources here will be created in the AWS_REGION and AWS_PROFILE from your
     # environment variables.
     # Execute this using: `just cf terraformState`
-
     Resources = {
       kmsKey = {
         Type = "AWS::KMS::Key";
+        DeletionPolicy = "RetainExceptOnCreate";
         Properties = {
+          Tags = tagWith "kmsKey";
           KeyPolicy."Fn::Sub" = builtins.toJSON {
             Version = "2012-10-17";
             Statement = [
@@ -30,8 +73,10 @@
 
       kmsKeyAlias = {
         Type = "AWS::KMS::Alias";
+        DeletionPolicy = "RetainExceptOnCreate";
         Properties = {
           # This name is used in various places, check before changing it.
+          # KMS aliases do not accept tags
           AliasName = "alias/kmsKey";
           TargetKeyId.Ref = "kmsKey";
         };
@@ -39,13 +84,18 @@
 
       DNSZone = {
         Type = "AWS::Route53::HostedZone";
-        Properties.Name = domain;
+        DeletionPolicy = "RetainExceptOnCreate";
+        Properties = {
+          HostedZoneTags = tagWith domain;
+          Name = domain;
+        };
       };
 
       S3Bucket = {
         Type = "AWS::S3::Bucket";
-        DeletionPolicy = "Retain";
+        DeletionPolicy = "RetainExceptOnCreate";
         Properties = {
+          Tags = tagWith bucketName;
           BucketName = bucketName;
           BucketEncryption.ServerSideEncryptionConfiguration = [
             {
@@ -59,7 +109,9 @@
 
       DynamoDB = {
         Type = "AWS::DynamoDB::Table";
+        DeletionPolicy = "RetainExceptOnCreate";
         Properties = {
+          Tags = tagWith "terraform-DynamoDB";
           TableName = "terraform";
 
           KeySchema = [

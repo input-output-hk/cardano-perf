@@ -84,7 +84,6 @@
 
     config = {
       aws.instance.tags = {
-        inherit (self.cluster.generic) organization tribe function repo;
         environment = name;
         group = name;
         Name = name;
