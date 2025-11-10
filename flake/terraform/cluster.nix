@@ -27,6 +27,28 @@
     cluster.regions;
 
   mapRegions = f: lib.foldl' lib.recursiveUpdate {} (lib.forEach regions f);
+
+  sensitiveString = {
+    type = "string";
+    sensitive = true;
+    nullable = false;
+  };
+
+  defaultTags = {
+    inherit
+      (self.cluster.generic)
+      environment
+      function
+      organization
+      owner
+      project
+      repo
+      tribe
+      ;
+
+    # costCenter is saved as a secret
+    costCenter = "\${var.${self.cluster.generic.costCenter}}";
+  };
 in {
   flake.terraform.cluster = inputs.terranix.lib.terranixConfiguration {
     system = "x86_64-linux";
@@ -49,10 +71,19 @@ in {
           };
         };
 
+        variable = {
+          # costCenter tag should remain secret in public repos
+          "${self.cluster.generic.costCenter}" = sensitiveString;
+        };
+
         provider.aws = lib.forEach (builtins.attrNames cluster.regions) (region: {
           inherit region;
           alias = underscore region;
-          default_tags.tags = self.cluster.generic;
+
+          # Default tagging is inconsistent across aws resources, but including
+          # it may help tag some resources that might have otherwise been
+          # missed.
+          default_tags.tags = defaultTags;
         });
 
         # Common parameters:
@@ -77,6 +108,19 @@ in {
                 {
                   name = "architecture";
                   values = [(builtins.head (lib.splitString "-" system))];
+                }
+              ];
+            };
+          });
+
+          # Ref: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html
+          aws_availability_zones = mapRegions ({region, ...}: {
+            ${region} = {
+              provider = "aws.${region}";
+              filter = [
+                {
+                  name = "opt-in-status";
+                  values = ["opt-in-not-required"];
                 }
               ];
             };
@@ -110,13 +154,79 @@ in {
               }
             ];
           };
+
+          aws_internet_gateway = mapRegions ({region, ...}: {
+            ${region} = {
+              provider = "aws.${region}";
+              filter = [
+                {
+                  name = "attachment.vpc-id";
+                  values = ["\${data.aws_vpc.${region}.id}"];
+                }
+              ];
+              depends_on = ["data.aws_vpc.${region}"];
+            };
+          });
+
+          aws_route_table = mapRegions ({region, ...}: {
+            ${region} = {
+              provider = "aws.${region}";
+              route_table_id = "\${data.aws_vpc.${region}.main_route_table_id}";
+              depends_on = ["data.aws_vpc.${region}"];
+            };
+          });
+
+          aws_subnet = mapRegions ({region, ...}: {
+            ${region} = {
+              provider = "aws.${region}";
+              # The index of the map is used to assign an ipv6 subnet network
+              # id offset in the aws_default_subnet ipv6_cidr_block resource
+              # arg.
+              #
+              # While az ids are consistent across aws orgs, they are not
+              # implemented in all regions, therefore we'll use az names as
+              # indexed values.
+              #
+              # Ref:
+              #   https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/subnet#availability_zone_id
+              #
+              for_each = "\${{for i, az in data.aws_availability_zones.${region}.names : i => az}}";
+              availability_zone = "\${element(data.aws_availability_zones.${region}.names, each.key)}";
+              default_for_az = true;
+            };
+          });
+
+          aws_vpc = mapRegions ({region, ...}: {
+            ${region} = {
+              provider = "aws.${region}";
+              default = true;
+            };
+          });
         };
+
+        # Debug output
+        # output =
+        #   mapRegions ({region, ...}: {
+        #     "aws_availability_zones_${region}".value = "\${data.aws_availability_zones.${region}.names}";
+        #   })
+        #   // mapRegions ({region, ...}: {
+        #     "aws_internet_gateway_${region}".value = "\${data.aws_internet_gateway.${region}}";
+        #   })
+        #   // mapRegions ({region, ...}: {
+        #     "aws_route_table_${region}".value = "\${data.aws_route_table.${region}}";
+        #   })
+        #   // mapRegions ({region, ...}: {
+        #     "aws_subnet_${region}".value = "\${data.aws_subnet.${region}}";
+        #   })
+        #   // mapRegions ({region, ...}: {
+        #     "aws_vpc_${region}".value = "\${data.aws_vpc.${region}}";
+        #   });
 
         resource = {
           aws_instance = mapNodes (
             _: node:
               {
-                inherit (node.aws.instance) count instance_type tags;
+                inherit (node.aws.instance) count instance_type;
                 provider = awsProviderFor node.aws.region;
                 ami = "\${data.aws_ami.nixos_${system}_${underscore node.aws.region}.id}";
                 iam_instance_profile = "\${aws_iam_instance_profile.ec2_profile.name}";
@@ -126,11 +236,19 @@ in {
                   "\${aws_security_group.common_${underscore node.aws.region}[0].id}"
                 ];
 
+                # Provider level `default_tags` are automatically inherited at
+                # the instance level.  Instance specific tags defined in
+                # flake/colmena.nix are merged.
+                tags = node.aws.instance.tags or {};
+
                 root_block_device = {
                   volume_type = "gp3";
                   inherit (node.aws.instance.root_block_device) volume_size;
                   iops = 3000;
                   delete_on_termination = true;
+
+                  # Default tags are not inherited to the volume level automatically.
+                  tags = defaultTags // node.aws.instance.tags or {};
                 };
 
                 metadata_options = {
@@ -149,6 +267,7 @@ in {
           aws_iam_instance_profile.ec2_profile = {
             name = "ec2Profile";
             role = "\${aws_iam_role.ec2_role.name}";
+            tags = defaultTags;
           };
 
           aws_iam_role.ec2_role = {
@@ -163,6 +282,8 @@ in {
                 }
               ];
             };
+
+            tags = defaultTags;
           };
 
           aws_iam_role_policy_attachment = let
@@ -198,6 +319,8 @@ in {
                   }
                 ];
               };
+
+              tags = defaultTags;
             };
 
             ec2_discover = {
@@ -212,6 +335,8 @@ in {
                   }
                 ];
               };
+
+              tags = defaultTags;
             };
 
             s3_access_policy = {
@@ -234,6 +359,8 @@ in {
                   }
                 ];
               };
+
+              tags = defaultTags;
             };
           };
 
@@ -248,13 +375,17 @@ in {
               provider = awsProviderFor region;
               key_name = "bootstrap";
               public_key = "\${tls_private_key.bootstrap.public_key_openssh}";
+              tags = defaultTags;
             };
           });
 
           aws_eip = mapNodes (name: node: {
-            inherit (node.aws.instance) count tags;
+            inherit (node.aws.instance) count;
             provider = awsProviderFor node.aws.region;
             instance = "\${aws_instance.${name}[0].id}";
+
+            # Provider level `default_tags` are automatically inherited.
+            tags = node.aws.instance.tags or {};
           });
 
           aws_eip_association = mapNodes (name: node: {
@@ -270,6 +401,7 @@ in {
             iops = 3000;
             throughput = 125; # MB/s
             size = 12000;
+            tags = {Name = "deployer_volume";} // defaultTags;
           };
 
           aws_volume_attachment.deployer_volume = {
@@ -350,6 +482,8 @@ in {
                     protocol = "-1";
                   })
                 ];
+
+                tags = defaultTags;
               };
             });
 
@@ -363,7 +497,7 @@ in {
 
           aws_s3_bucket.deploy = {
             bucket = "${self.cluster.profile}-deploy";
-            tags = self.cluster.generic;
+            tags = defaultTags;
           };
 
           aws_s3_bucket_policy.public_read_access = {
@@ -396,6 +530,8 @@ in {
                 }
               ];
             };
+
+            tags = defaultTags;
           };
 
           aws_s3_bucket_public_access_block.deploy = {
