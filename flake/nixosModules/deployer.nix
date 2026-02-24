@@ -1,6 +1,10 @@
-{config, ...}: {
-  flake.nixosModules.deployer = {pkgs, ...}: {
-    imports = [config.flake.nixosModules.serve-runs];
+parts: {
+  flake.nixosModules.deployer = {
+    config,
+    pkgs,
+    ...
+  }: {
+    imports = [parts.config.flake.nixosModules.serve-runs];
 
     aws.instance.tags.Role = "deployer";
 
@@ -83,6 +87,18 @@
     nix = {
       nrBuildUsers = 36;
       settings.system-features = ["recursive-nix" "nixos-test" "benchmark"];
+      settings.secret-key-files = [config.sops.secrets.nix-signing-key.path];
+
+      sshServe = {
+        enable = true;
+        protocol = "ssh-ng";
+        keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA9jutPzEgNOVqyJzsat9yu1Ie2vESIcgHXLH5z41nAx nix-ssh@cardano-perf"];
+      };
+    };
+
+    sops.secrets.nix-signing-key = {
+      sopsFile = ../../secrets/nix-signing-key.enc;
+      restartUnits = ["nix-daemon.service"];
     };
   };
 }

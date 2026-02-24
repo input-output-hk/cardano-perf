@@ -121,6 +121,15 @@ parts @ {
       sysdig.enable = true;
       mosh.enable = true;
 
+      ssh = {
+        knownHosts."deployer.perf.aws.iohkdev.io".publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILp0E+WjSHrXOH3uR7Vk3nTcc6GJSIJIIU7gBeCRVmNk";
+        extraConfig = ''
+          Host deployer.perf.aws.iohkdev.io
+            User nix-ssh
+            IdentityFile ${config.sops.secrets.nix-ssh-key.path}
+        '';
+      };
+
       tmux = {
         enable = true;
         aggressiveResize = true;
@@ -145,11 +154,14 @@ parts @ {
       };
     };
 
-    sops.defaultSopsFormat = "binary";
-    sops.secrets.github-token = {
-      sopsFile = "${self}/secrets/github-token.enc";
-      owner = config.programs.auth-keys-hub.user;
-      inherit (config.programs.auth-keys-hub) group;
+    sops = {
+      defaultSopsFormat = "binary";
+      secrets.nix-ssh-key.sopsFile = "${self}/secrets/nix-ssh-key.enc";
+      secrets.github-token = {
+        sopsFile = "${self}/secrets/github-token.enc";
+        owner = config.programs.auth-keys-hub.user;
+        inherit (config.programs.auth-keys-hub) group;
+      };
     };
 
     services = {
@@ -188,8 +200,14 @@ parts @ {
         experimental-features = ["nix-command" "flakes" "cgroups"];
         auto-optimise-store = true;
         system-features = ["recursive-nix" "nixos-test"];
-        substituters = ["https://cache.iog.io"];
-        trusted-public-keys = ["hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="];
+        substituters = [
+          "ssh-ng://deployer.perf.aws.iohkdev.io"
+          "https://cache.iog.io"
+        ];
+        trusted-public-keys = [
+          "deployer.perf.aws.iohkdev.io-1:RDUXY6sTCf1PaY7Cr5MPcdqWRv89E4oaTINdEgmAhl8="
+          "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
+        ];
         builders-use-substitutes = true;
         show-trace = true;
         keep-outputs = true;

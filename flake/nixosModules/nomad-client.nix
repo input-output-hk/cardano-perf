@@ -15,7 +15,7 @@
       enableDocker = false;
       dropPrivileges = false;
       package = self'.packages.nomad;
-      extraPackages = [pkgs.cni-plugins pkgs.nix];
+      extraPackages = [pkgs.cni-plugins pkgs.nix pkgs.openssh];
 
       settings = {
         datacenter = config.aws.region;
