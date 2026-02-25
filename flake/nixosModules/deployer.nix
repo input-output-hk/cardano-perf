@@ -40,6 +40,8 @@ parts: {
 
     systemd.services.mkfs-dev-sdh.after = ["multi-user.target"];
 
+    services.openssh.settings.MaxStartups = "64:30:100";
+
     environment.systemPackages = with pkgs; [
       (ruby.withPackages (ps: with ps; [sequel pry sqlite3 nokogiri]))
       screen
