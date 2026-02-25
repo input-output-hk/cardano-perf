@@ -472,6 +472,12 @@ in {
                     to_port = 0;
                     protocol = "icmp";
                   })
+                  (mkRule {
+                    description = "Allow Mosh";
+                    from_port = 60000;
+                    to_port = 61000;
+                    protocol = "udp";
+                  })
                 ];
 
                 egress = [
